@@ -1,13 +1,10 @@
 package org.demo.rabbitmq;
 
-import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.QueueingConsumer;
+import com.rabbitmq.client.*;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Channel;
-
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -32,23 +29,28 @@ public class RabbitMQTest {
 
             // Declare message consumer
             QueueingConsumer consumer = new QueueingConsumer(channel);
-            channel.basicConsume(QUEUE_NAME, true, consumer);
+            channel.basicConsume(QUEUE_NAME, true,
+                    new DefaultConsumer(channel) {
+                        @Override
+                        public void handleDelivery(String consumerTag,
+                                                   Envelope envelope,
+                                                   AMQP.BasicProperties properties,
+                                                   byte[] body)
+                                throws IOException
+                        {
+                            String messageReceived = new String(body);
+                            System.out.println("Message received : " + messageReceived);
+                        }
+                    });
 
-            String messageToSend = "Hello World !";
+            for(int i=0; i<100; i++) {
+                // Send message
+                String messageToSend = "Message num = "+ (i+1);
+                channel.basicPublish("", QUEUE_NAME, null, messageToSend.getBytes());
+                System.out.println("Message sent : " + messageToSend);
+            }
 
-            // Send message
-            channel.basicPublish("", QUEUE_NAME, null, messageToSend.getBytes());
-            System.out.println("Message sent : "+messageToSend);
-
-            // Receive message
-            QueueingConsumer.Delivery delivery = consumer.nextDelivery();
-            String messageReceived = new String(delivery.getBody());
-
-            System.out.println("Message received : "+messageReceived);
-            Assert.assertEquals(messageToSend, messageReceived);
-
-            // Delete queue
-            channel.queueDelete(QUEUE_NAME);
+            Thread.sleep(100);
 
         } finally {
             if(channel != null && channel.isOpen()) {
