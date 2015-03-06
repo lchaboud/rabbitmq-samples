@@ -1,0 +1,2 @@
+# rabbitmq-samples
+RabbitMQ Samples
